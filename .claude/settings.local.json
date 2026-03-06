@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(tail:*)",
+      "Bash(cd /c/Users/1028120/Documents/Scripts/corp-project-extractor && .venv/Scripts/cpe scan \"/c/Users/1028120/OneDrive - Blue Yonder/MyWork/10_Projects/Lenzing_Planning\" 2>&1)",
+      "Bash(.venv/Scripts/python:*)",
+      "Bash(.venv/Scripts/cpe:*)",
+      "Bash(PYTHONIOENCODING=utf-8 .venv/Scripts/python:*)"
+    ]
+  }
+}

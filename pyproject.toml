@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "corp-project-extractor"
+version = "0.1.0"
+description = "Scan, classify, extract and structure knowledge from pre-sales project folders"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.0",
+    "rich>=13.0",
+    "pyyaml>=6.0",
+    "python-pptx>=0.6.21",
+    "pdfplumber>=0.10",
+    "python-docx>=1.0",
+    "openpyxl>=3.1",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+    "ruff",
+]
+
+[project.scripts]
+cpe = "corp_project_extractor.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"

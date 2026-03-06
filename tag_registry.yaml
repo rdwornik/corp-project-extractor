@@ -1,0 +1,62 @@
+# Controlled vocabulary for normalizing tags across projects
+# Format: canonical_tag: [aliases]
+
+# === BY SOLUTIONS ===
+solutions:
+  DSP: [Demand Planning, Demand Sensing, Statistical Forecasting, Demand Solutions]
+  ESP: [Enterprise Supply Planning, Supply Planning]
+  D360: [Demand 360, D360]
+  IBP: [Integrated Business Planning, SIOP, S&OP, SNOP]
+  WMS: [Warehouse Management, Warehouse]
+  TMS: [Transportation Management, Transport]
+  CatMan: [Category Management, Space Planning, Planogram]
+  MFP: [Merchandise Financial Planning]
+  APS: [Advanced Planning, Cognitive Planning]
+  Sequencing: [Production Sequencing, Scheduling, Flexis]
+  Network: [BY Network, Network Design, Network Optimization]
+  CDP: [Cognitive Demand Planning]
+  IDSP: [Integrated Demand Supply Planning]
+
+# === ERP SYSTEMS ===
+erp:
+  SAP_S4HANA: [SAP, S/4HANA, S4, SAP ECC, SAP ERP, SAP BW]
+  Oracle_Fusion: [Oracle, Oracle Cloud, Oracle EBS, Oracle Fusion]
+  Microsoft_D365: [Dynamics 365, D365, Microsoft Dynamics, AX]
+  JDE: [JD Edwards]
+  Infor: [Infor M3, Infor LN, Infor CloudSuite]
+
+# === INTEGRATION PATTERNS ===
+integration:
+  API_REST: [REST API, Web Services, API]
+  EDI: [EDI, EDIFACT, X12]
+  File_Transfer: [SFTP, FTP, File Based, Flat File]
+  Middleware: [MuleSoft, Dell Boomi, SAP PI, SAP CPI, Azure Integration]
+
+# === INDUSTRIES ===
+industry:
+  manufacturing: [Manufacturing, Industrial, Process Manufacturing, Discrete]
+  retail: [Retail, E-Commerce, Omnichannel]
+  pharma: [Pharmaceutical, Life Sciences, Healthcare, Biotech]
+  cpg: [CPG, FMCG, Consumer Goods, Food & Beverage]
+  logistics: [Logistics, 3PL, Transportation, Distribution]
+  automotive: [Automotive, OEM, Aftermarket]
+  chemicals: [Chemicals, Specialty Chemicals]
+  fashion: [Fashion, Apparel, Luxury]
+
+# === ENGAGEMENT TYPES ===
+engagement:
+  rfp: [RFP, Request for Proposal]
+  rfi: [RFI, Request for Information]
+  rfq: [RFQ, Request for Quotation]
+  poc: [POC, Proof of Concept, Pilot]
+  migration: [Migration, Move to SaaS, Cloud Migration, Upgrade]
+  demo: [Demo, Custom Demo, Discovery Demo]
+  support: [Support, Pre-Sales Support, Assist]
+
+# === SECURITY & COMPLIANCE ===
+security:
+  SOC2: [SOC 2, SOC2 Type 2, Type II]
+  ISO27001: [ISO 27001, ISO27001, ISO 27701]
+  GDPR: [GDPR, Data Protection]
+  NIS2: [NIS2, NIS 2 Directive]
+  DPA: [DPA, Data Processing Agreement, Data Processing Addendum]

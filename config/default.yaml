@@ -1,0 +1,57 @@
+# corp-project-extractor pipeline configuration
+
+paths:
+  projects_root: "${PROJECTS_ROOT}"
+  archive_root: "${ARCHIVE_ROOT}"
+  pdf_toolkit_path: "${PDF_TOOLKIT_PATH}"
+
+classification:
+  junk_markers:
+    - "DO NOT USE"
+    - "NOT USE!"
+    - "OLD!!"
+    - "~$"
+    - "Thumbs.db"
+    - ".DS_Store"
+    - "backup"
+  skip_extensions:
+    - ".png"
+    - ".jpg"
+    - ".jpeg"
+    - ".gif"
+    - ".bmp"
+    - ".svg"
+    - ".mp4"
+    - ".mov"
+    - ".avi"
+    - ".mkv"
+    - ".zip"
+    - ".rar"
+    - ".7z"
+    - ".exe"
+    - ".msi"
+    - ".dll"
+    - ".lnk"
+  max_file_size_mb: 100
+
+extraction:
+  pptx:
+    include_notes: true
+    include_slide_numbers: true
+  xlsx:
+    questionnaire_markers:
+      - "Q&A"
+      - "Questionnaire"
+      - "Requirements"
+      - "Business"
+      - "Service and Technical"
+      - "Commercials"
+      - "Forecast"
+      - "Questions"
+    data_mode_max_rows: 10
+    questionnaire_max_rows: 500
+    cell_truncate_chars: 200
+
+output:
+  knowledge_dir: "_knowledge"
+  extracted_dir: "_extracted"
