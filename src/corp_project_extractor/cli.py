@@ -1,6 +1,7 @@
 """Click CLI for corp-project-extractor. Entry point: cpe"""
 from __future__ import annotations
 
+import json
 import logging
 import sys
 from collections import Counter
@@ -161,6 +162,78 @@ def extract(ctx: click.Context, project_path: str, force: bool, skip_junk: bool)
         f"Skipped: [dim]{skipped}[/dim]  "
         f"Failed: [red]{failed}[/red]\n"
     )
+
+
+# ── cpe extract-cke ──────────────────────────────────────────────────────────
+
+@cli.command("extract-cke")
+@click.argument("project_path", type=click.Path(exists=True, file_okay=False))
+@click.option("--resume/--no-resume", default=True, help="Skip already-extracted files.")
+@click.option("--max-rpm", default=100, help="Max Gemini API requests per minute.")
+@click.option("--dry-run", is_flag=True, help="Generate manifest only, don't invoke CKE.")
+@click.pass_context
+def extract_cke(ctx: click.Context, project_path: str, resume: bool, max_rpm: int, dry_run: bool) -> None:
+    """Extract knowledge via corp-knowledge-extractor (CKE) batch processing.
+
+    Reads scan results, generates a CKE manifest, and invokes CKE's
+    process-manifest command for LLM-powered extraction via Gemini.
+
+    \b
+    Examples:
+        cpe extract-cke "C:\\path\\to\\Lenzing_Planning" --dry-run
+        cpe extract-cke "C:\\path\\to\\Lenzing_Planning" --max-rpm 50
+    """
+    from corp_project_extractor.cke_invoker import invoke_cke_batch
+    from corp_project_extractor.manifest import load_manifest, scan_and_save
+    from corp_project_extractor.manifest_generator import generate_cke_manifest
+
+    path = Path(project_path)
+    console.print(f"\n[bold]Corp Project Extractor — Extract via CKE[/bold]")
+    console.print(f"Project: [cyan]{path.name}[/cyan]\n")
+
+    # Load existing manifest or run a fresh scan
+    manifest = load_manifest(path)
+    if manifest is None:
+        console.print("[dim]No existing scan found, running scan...[/dim]")
+        with console.status("[bold green]Scanning files...[/bold green]"):
+            manifest, _ = scan_and_save(path)
+
+    console.print(f"[bold]Scanned files:[/bold] {len(manifest.files)}")
+
+    # Generate CKE manifest
+    manifest_path = generate_cke_manifest(manifest, path)
+
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        cke_data = json.load(f)
+
+    n_files = len(cke_data["files"])
+    console.print(f"[bold]CKE manifest:[/bold] {n_files} files to process")
+    console.print(f"[bold]Output dir:[/bold] {cke_data['output_dir']}")
+
+    if n_files == 0:
+        console.print("\n[yellow]No processable files found.[/yellow]")
+        return
+
+    if dry_run:
+        console.print(f"\n[yellow]Dry run — manifest saved to {manifest_path}[/yellow]")
+        console.print(f"\nTo process manually:")
+        console.print(f"  cd C:\\Users\\1028120\\Documents\\Scripts\\corp-knowledge-extractor")
+        console.print(f"  python scripts/run.py process-manifest \"{manifest_path}\" --resume")
+        return
+
+    # Invoke CKE
+    console.print(f"\n[bold]Starting extraction via CKE...[/bold]\n")
+    result = invoke_cke_batch(
+        manifest_path=manifest_path,
+        resume=resume,
+        max_rpm=max_rpm,
+    )
+
+    if result.returncode == 0:
+        console.print(f"\n[bold green]Extraction complete.[/bold green]")
+        console.print(f"Results in: {cke_data['output_dir']}")
+    else:
+        console.print(f"\n[bold red]CKE exited with errors (code {result.returncode}).[/bold red]")
 
 
 # ── cpe render ────────────────────────────────────────────────────────────────
