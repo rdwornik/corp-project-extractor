@@ -1,241 +1,285 @@
-"""Pure template step: facts.yaml → knowledge-sheet.md (no LLM).
+"""Render project-level knowledge from CKE per-file extraction results.
 
-Rules:
-- knowledge-sheet.md is ALWAYS fully regenerated — never hand-edit it
-- notes.md is NEVER touched — human-only
-- Empty sections are omitted
-- YAML frontmatter for Obsidian
+Reads extract.json files from _knowledge/_cke_output/ and produces:
+  - project-info.yaml  (corp-opportunity-manager compatible)
+  - facts.yaml         (aggregated key points with sources)
+  - index.md           (Obsidian project overview with frontmatter)
 """
 from __future__ import annotations
 
-from datetime import datetime
+import json
+import logging
+from collections import Counter
+from datetime import date, datetime
 from pathlib import Path
 
 import yaml
 
 from corp_project_extractor.config import get_settings
 
-_PRIORITY_ICONS = {"must_have": "🔴", "nice_to_have": "🟡", "unclear": "⚪"}
+logger = logging.getLogger(__name__)
 
 
-def _section(title: str, lines: list[str]) -> list[str]:
-    """Return section lines only if there's content."""
-    if not lines:
-        return []
-    return ["", f"## {title}", ""] + lines
+def render_project(project_path: Path) -> dict:
+    """Render project knowledge from CKE extraction results.
 
+    Args:
+        project_path: Root path of the project folder
 
-def render(project_path: Path) -> Path:
-    """Read _knowledge/facts.yaml and write _knowledge/knowledge-sheet.md."""
+    Returns:
+        Summary dict with stats
+    """
     settings = get_settings()
     knowledge_dir = project_path / settings.knowledge_dir
-    facts_path = knowledge_dir / "facts.yaml"
-    output_path = knowledge_dir / "knowledge-sheet.md"
+    cke_output = knowledge_dir / "_cke_output"
 
-    if not facts_path.exists():
+    if not cke_output.exists():
         raise FileNotFoundError(
-            f"facts.yaml not found at {facts_path}. "
-            "Populate it first (cpe synthesize or manually from _extracted/)."
+            f"No CKE output found at {cke_output}. Run 'cpe extract-cke' first."
         )
 
-    with open(facts_path, encoding="utf-8") as f:
-        facts: dict = yaml.safe_load(f) or {}
+    extractions = _load_extractions(cke_output)
 
-    today = datetime.now().strftime("%Y-%m-%d")
-    client = facts.get("client", "Unknown Client")
-    stage = facts.get("stage", "")
-    industry = facts.get("industry", "")
-    region = facts.get("region", "")
-    last_updated = facts.get("last_updated", today)
-    project_id = facts.get("project_id", client.lower().replace(" ", "-"))
-    sources_count = facts.get("sources_count", 0)
-    by_solutions = facts.get("overview", {}).get("by_solution", [])
+    if not extractions:
+        raise ValueError(f"No extract.json files found in {cke_output}")
 
-    # ── YAML frontmatter ──────────────────────────────────────────────────────
-    fm_lines = [
+    logger.info("Loaded %d extractions", len(extractions))
+
+    project_name = project_path.name
+
+    project_info = _build_project_info(project_name, extractions)
+    facts = _build_facts(project_name, extractions)
+    index_md = _build_index_md(project_name, project_info, facts)
+
+    _write_yaml(knowledge_dir / "project-info.yaml", project_info)
+    _write_yaml(knowledge_dir / "facts.yaml", facts)
+    (knowledge_dir / "index.md").write_text(index_md, encoding="utf-8")
+
+    logger.info("Rendered: project-info.yaml, facts.yaml, index.md")
+
+    return {
+        "extractions": len(extractions),
+        "topics": len(project_info.get("topics", [])),
+        "products": len(project_info.get("products", [])),
+        "people": len(project_info.get("people", [])),
+        "facts": facts["total_facts"],
+    }
+
+
+# -- Loading ------------------------------------------------------------------
+
+
+def _load_extractions(cke_output: Path) -> list[dict]:
+    """Load all extract.json files from CKE output directories."""
+    extractions = []
+    for extract_file in sorted(cke_output.rglob("extract.json")):
+        try:
+            with open(extract_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            extractions.append(data)
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            logger.warning("Failed to load %s: %s", extract_file, e)
+    return extractions
+
+
+# -- project-info.yaml --------------------------------------------------------
+
+
+def _build_project_info(project_name: str, extractions: list[dict]) -> dict:
+    """Build project-info.yaml compatible with corp-opportunity-manager."""
+    all_topics: Counter[str] = Counter()
+    all_products: Counter[str] = Counter()
+    all_people: Counter[str] = Counter()
+    doc_types: Counter[str] = Counter()
+
+    for ext in extractions:
+        for topic in ext.get("topics", []):
+            all_topics[topic] += 1
+        for product in ext.get("products", []):
+            all_products[product] += 1
+        for person in ext.get("people", []):
+            all_people[person] += 1
+        doc_types[ext.get("doc_type", "document")] += 1
+
+    top_topics = [t for t, _ in all_topics.most_common(15)]
+    top_products = [p for p, _ in all_products.most_common(8)]
+    top_people = [p for p, _ in all_people.most_common(10)]
+
+    return {
+        "project": project_name,
+        "status": "active",
+        "rendered_at": datetime.now().isoformat(),
+        "files_processed": len(extractions),
+        "topics": top_topics,
+        "products": top_products,
+        "people": top_people,
+        "doc_type_distribution": dict(doc_types.most_common()),
+        "opportunity": {
+            "name": project_name.replace("_", " "),
+            "products": top_products[:4],
+            "stage": "active",
+            "key_topics": top_topics[:8],
+        },
+    }
+
+
+# -- facts.yaml ---------------------------------------------------------------
+
+
+def _build_facts(project_name: str, extractions: list[dict]) -> dict:
+    """Build facts.yaml with aggregated key points from all files."""
+    facts: list[dict] = []
+
+    for ext in extractions:
+        file_id = ext.get("id", "unknown")
+        title = ext.get("title", file_id)
+        topics = ext.get("topics", [])[:3]
+
+        for point in ext.get("key_points", []):
+            if isinstance(point, str) and len(point) > 20:
+                facts.append({
+                    "fact": point,
+                    "source": file_id,
+                    "source_title": title,
+                    "topics": topics,
+                })
+
+        summary = ext.get("summary", "")
+        if summary and len(summary) > 50:
+            facts.append({
+                "fact": summary,
+                "source": file_id,
+                "source_title": title,
+                "type": "summary",
+                "topics": topics,
+            })
+
+    # Group fact counts by topic
+    topic_counts: Counter[str] = Counter()
+    for fact in facts:
+        for t in fact.get("topics", []):
+            topic_counts[t] += 1
+
+    return {
+        "project": project_name,
+        "total_facts": len(facts),
+        "rendered_at": datetime.now().isoformat(),
+        "facts_by_topic": dict(topic_counts.most_common()),
+        "facts": facts,
+    }
+
+
+# -- index.md -----------------------------------------------------------------
+
+
+def _build_index_md(
+    project_name: str,
+    project_info: dict,
+    facts: dict,
+) -> str:
+    """Build index.md -- Obsidian-compatible project overview."""
+    topics = project_info.get("topics", [])
+    products = project_info.get("products", [])
+    people = project_info.get("people", [])
+    doc_dist = project_info.get("doc_type_distribution", {})
+    display_name = project_name.replace("_", " ")
+    today = str(date.today())
+
+    # Frontmatter
+    lines = [
         "---",
-        f"project_id: {project_id}",
-        f"client: {client}",
-        f"stage: {stage}",
-        f"industry: {industry}",
-        f"region: {region}",
-        f"by_solution: {by_solutions!r}",
-        f"last_updated: \"{last_updated}\"",
-        f"sources_count: {sources_count}",
-        "generated: true",
+        f'title: "Project: {display_name}"',
+        f"date: {today}",
+        'type: "report"',
+        'source_type: "opportunity"',
+        'layer: "operational"',
+        f"topics: {json.dumps(topics[:8])}",
+        f"products: {json.dumps(products[:4])}",
+        f"people: {json.dumps(people[:3])}",
+        f'project: "{project_name}"',
+        'confidentiality: "confidential"',
+        'authority: "approved"',
+        'source_tool: "project-extractor"',
+        f'source_file: "{project_name}"',
+        "schema_version: 2",
         "---",
-    ]
-
-    body: list[str] = [
-        f"# {client} — Knowledge Sheet",
         "",
-        f"> **Auto-generated** from project files on {today}. "
-        "Do not edit — use `_knowledge/notes.md` for annotations.",
+        f"# {display_name}",
+        "",
+        f"**Files processed:** {project_info.get('files_processed', 0)}",
+        f"**Last rendered:** {today}",
+        "",
     ]
 
-    # ── 1. Overview ───────────────────────────────────────────────────────────
-    ov = facts.get("overview", {})
-    ov_lines: list[str] = []
-    if ov.get("client_problem"):
-        ov_lines += [f"**Problem:** {ov['client_problem']}", ""]
-    if ov.get("proposed_outcome"):
-        ov_lines += [f"**Proposed Outcome:** {ov['proposed_outcome']}", ""]
-    if ov.get("by_solution"):
-        ov_lines += [f"**BY Solutions:** {', '.join(ov['by_solution'])}", ""]
-    if ov.get("engagement_type"):
-        ov_lines += [f"**Engagement Type:** {ov['engagement_type']}"]
-    body += _section("Overview", ov_lines)
+    # Links line
+    link_parts = [f"[[{t}]]" for t in topics[:8]]
+    link_parts += [f"[[{p}]]" for p in products[:4]]
+    lines.append("**Links:** " + " . ".join(link_parts))
+    lines.append("")
 
-    # ── 2. Timeline ───────────────────────────────────────────────────────────
-    tl = facts.get("timeline", {})
-    tl_lines: list[str] = []
-    _date_fields = [
-        ("first_contact", "First Contact"),
-        ("discovery",     "Discovery"),
-        ("demo",          "Demo"),
-        ("rfp_received",  "RFP Received"),
-        ("rfp_submitted", "RFP Submitted"),
-        ("decision_expected", "Decision Expected"),
-    ]
-    for key, label in _date_fields:
-        if tl.get(key):
-            tl_lines.append(f"- **{label}:** {tl[key]}")
-    events = tl.get("events", [])
-    if events:
-        tl_lines.append("")
-        tl_lines.append("**Event Log:**")
-        for ev in sorted(events, key=lambda e: e.get("date", "")):
-            src = f" _(source: {ev['source']})_" if ev.get("source") else ""
-            tl_lines.append(f"- **{ev.get('date', '')}** — {ev.get('event', '')}{src}")
-    body += _section("Timeline", tl_lines)
+    # Topics by frequency
+    lines.append("## Key Topics")
+    lines.append("")
+    for topic in topics[:12]:
+        lines.append(f"- {topic}")
+    lines.append("")
 
-    # ── 3. Key Requirements ───────────────────────────────────────────────────
-    reqs = facts.get("requirements", [])
-    req_lines: list[str] = []
-    for req in reqs:
-        prio = req.get("priority", "unclear")
-        icon = _PRIORITY_ICONS.get(prio, "⚪")
-        topic = req.get("topic", "")
-        text = req.get("requirement", "")
-        src = req.get("source", {})
-        src_str = ""
-        if src:
-            parts = []
-            if src.get("file"):
-                parts.append(src["file"])
-            if src.get("page"):
-                parts.append(f"p.{src['page']}")
-            if parts:
-                src_str = f" _({', '.join(parts)})_"
-        req_lines.append(f"{icon} **{topic}:** {text}{src_str}")
-    body += _section("Key Requirements", req_lines)
+    # Products
+    if products:
+        lines.append("## Products")
+        lines.append("")
+        for product in products:
+            lines.append(f"- {product}")
+        lines.append("")
 
-    # ── 4. Integrations & Constraints ─────────────────────────────────────────
-    intgs = facts.get("integrations", [])
-    intg_lines: list[str] = []
-    for intg in intgs:
-        system = intg.get("system", "")
-        typ = intg.get("type", "")
-        direction = intg.get("direction", "")
-        notes = intg.get("notes", "")
-        meta = ", ".join(x for x in [typ, direction] if x)
-        note_str = f": {notes}" if notes else ""
-        intg_lines.append(f"- **{system}** ({meta}){note_str}")
-    body += _section("Integrations & Constraints", intg_lines)
+    # People
+    if people:
+        lines.append("## Key People")
+        lines.append("")
+        for person in people[:10]:
+            lines.append(f"- {person}")
+        lines.append("")
 
-    # ── 5. Competitors ────────────────────────────────────────────────────────
-    comps = facts.get("competitors", [])
-    comp_lines: list[str] = []
-    for comp in comps:
-        name = comp.get("name", "")
-        comp_lines.append(f"### {name}")
-        if comp.get("strengths"):
-            comp_lines.append(f"- **Strengths:** {comp['strengths']}")
-        if comp.get("weaknesses"):
-            comp_lines.append(f"- **Weaknesses:** {comp['weaknesses']}")
-    body += _section("Competitors", comp_lines)
+    # Facts by topic
+    facts_by_topic = facts.get("facts_by_topic", {})
+    if facts_by_topic:
+        lines.append("## Knowledge by Topic")
+        lines.append("")
+        for topic, count in sorted(facts_by_topic.items(), key=lambda x: -x[1])[:10]:
+            lines.append(f"- **{topic}** -- {count} facts")
+        lines.append("")
 
-    # ── 6. Commercial ─────────────────────────────────────────────────────────
-    comm = facts.get("commercial", {})
-    comm_lines: list[str] = []
-    if comm.get("pricing_model"):
-        comm_lines.append(f"- **Pricing Model:** {comm['pricing_model']}")
-    if comm.get("deal_value"):
-        comm_lines.append(f"- **Deal Value:** {comm['deal_value']}")
-    if comm.get("contract_term"):
-        comm_lines.append(f"- **Contract Term:** {comm['contract_term']}")
-    for assumption in comm.get("key_assumptions", []):
-        comm_lines.append(f"  - {assumption}")
-    body += _section("Commercial", comm_lines)
+    # Document breakdown
+    lines.append("## Documents Processed")
+    lines.append("")
+    for doc_type, count in sorted(doc_dist.items(), key=lambda x: -x[1]):
+        lines.append(f"- **{doc_type}**: {count} files")
+    lines.append("")
 
-    # ── 7. Security & Compliance ──────────────────────────────────────────────
-    sec = facts.get("security", {})
-    sec_lines: list[str] = []
-    certs = sec.get("certifications_provided", [])
-    if certs:
-        sec_lines.append(f"- **Certifications Provided:** {', '.join(certs)}")
-    if sec.get("data_residency"):
-        sec_lines.append(f"- **Data Residency:** {sec['data_residency']}")
-    for q in sec.get("questions_asked", []):
-        sec_lines.append(f"- Q: {q}")
-    for sr in sec.get("special_requirements", []):
-        sec_lines.append(f"- ⚠ {sr}")
-    body += _section("Security & Compliance", sec_lines)
+    # Dataview query for Obsidian
+    lines.append("## All Extracted Notes")
+    lines.append("")
+    lines.append("```dataview")
+    lines.append("TABLE source_type, topics")
+    lines.append('FROM "02_sources"')
+    lines.append(f'WHERE project = "{project_name}"')
+    lines.append("SORT date DESC")
+    lines.append("```")
+    lines.append("")
 
-    # ── 8. Risks & Open Questions ─────────────────────────────────────────────
-    risks = facts.get("risks", [])
-    risk_lines: list[str] = []
-    for risk in risks:
-        prob = risk.get("probability", "").upper()
-        impact = risk.get("impact", "").upper()
-        badge = f"[{prob}/{impact}]" if prob or impact else ""
-        mitigation = risk.get("mitigation", "")
-        src = risk.get("source", {})
-        src_str = f" _({src['file']})_" if src and src.get("file") else ""
-        risk_lines.append(f"- {badge} {risk.get('risk', '')}{src_str}")
-        if mitigation:
-            risk_lines.append(f"  - Mitigation: {mitigation}")
-    body += _section("Risks & Open Questions", risk_lines)
+    return "\n".join(lines)
 
-    # ── 9. Decision Log ───────────────────────────────────────────────────────
-    decisions = facts.get("decisions", [])
-    dec_lines: list[str] = []
-    for dec in sorted(decisions, key=lambda d: d.get("date", "")):
-        src = dec.get("source", {})
-        src_str = f" _({src['file']})_" if src and src.get("file") else ""
-        dec_lines.append(f"- **{dec.get('date', '')}** — {dec.get('decision', '')}{src_str}")
-        if dec.get("rationale"):
-            dec_lines.append(f"  - {dec['rationale']}")
-    body += _section("Decision Log", dec_lines)
 
-    # ── 10. Team ──────────────────────────────────────────────────────────────
-    team = facts.get("team", {})
-    team_lines: list[str] = []
-    by_team = team.get("by_team", [])
-    client_contacts = team.get("client_contacts", [])
-    if by_team:
-        team_lines.append("**Blue Yonder Team:**")
-        for m in by_team:
-            team_lines.append(f"- {m.get('name', '')} — {m.get('role', '')}")
-    if client_contacts:
-        if by_team:
-            team_lines.append("")
-        team_lines.append("**Client Contacts:**")
-        for m in client_contacts:
-            team_lines.append(f"- {m.get('name', '')} — {m.get('role', '')}")
-    body += _section("Team", team_lines)
+# -- Utilities ----------------------------------------------------------------
 
-    # ── 11. Key Files ─────────────────────────────────────────────────────────
-    kf_items = facts.get("key_files", [])
-    kf_lines: list[str] = []
-    for kf in kf_items:
-        kf_lines.append(
-            f"- **{kf.get('file', '')}** ({kf.get('category', '')}): {kf.get('why_important', '')}"
+
+def _write_yaml(path: Path, data: dict) -> None:
+    """Write YAML file with clean formatting."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.dump(
+            data, f,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
         )
-    body += _section("Key Files", kf_lines)
-
-    # ── Write ─────────────────────────────────────────────────────────────────
-    knowledge_dir.mkdir(parents=True, exist_ok=True)
-    content = "\n".join(fm_lines) + "\n\n" + "\n".join(body) + "\n"
-    output_path.write_text(content, encoding="utf-8")
-    return output_path

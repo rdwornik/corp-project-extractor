@@ -240,20 +240,46 @@ def extract_cke(ctx: click.Context, project_path: str, resume: bool, max_rpm: in
 
 @cli.command()
 @click.argument("project_path", type=click.Path(exists=True, file_okay=False))
+@click.option("--copy-to-vault", type=click.Path(), default=None,
+              help="Copy index.md to Obsidian vault path.")
 @click.pass_context
-def render(ctx: click.Context, project_path: str) -> None:
-    """Generate _knowledge/knowledge-sheet.md from _knowledge/facts.yaml."""
-    from corp_project_extractor import renderer
+def render(ctx: click.Context, project_path: str, copy_to_vault: str | None) -> None:
+    """Render project knowledge from CKE extraction results.
+
+    Generates project-info.yaml (com compatible), facts.yaml,
+    and index.md (Obsidian) from CKE extract.json files.
+    """
+    from corp_project_extractor.renderer import render_project
 
     path = Path(project_path)
     console.print(f"\n[bold]Corp Project Extractor — Render[/bold]")
     console.print(f"Project: [cyan]{path.name}[/cyan]\n")
+
     try:
-        out_path = renderer.render(path)
-        console.print(f"[green]✓[/green] Written: [cyan]{out_path}[/cyan]\n")
-    except FileNotFoundError as e:
-        console.print(f"[red]✗[/red] {e}\n")
+        stats = render_project(path)
+    except (FileNotFoundError, ValueError) as e:
+        console.print(f"[red]{e}[/red]")
         sys.exit(1)
+
+    console.print(f"[green]Done.[/green]")
+    console.print(f"  Extractions: {stats['extractions']}")
+    console.print(f"  Topics:      {stats['topics']}")
+    console.print(f"  Products:    {stats['products']}")
+    console.print(f"  People:      {stats['people']}")
+    console.print(f"  Facts:       {stats['facts']}")
+
+    from corp_project_extractor.config import get_settings
+    knowledge_dir = path / get_settings().knowledge_dir
+    console.print(f"\n  [dim]{knowledge_dir / 'project-info.yaml'}[/dim]")
+    console.print(f"  [dim]{knowledge_dir / 'facts.yaml'}[/dim]")
+    console.print(f"  [dim]{knowledge_dir / 'index.md'}[/dim]")
+
+    if copy_to_vault:
+        import shutil
+        vault_dir = Path(copy_to_vault) / path.name
+        vault_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(knowledge_dir / "index.md", vault_dir / "index.md")
+        console.print(f"\n  Copied to vault: [cyan]{vault_dir / 'index.md'}[/cyan]")
 
 
 # ── cpe show ──────────────────────────────────────────────────────────────────
