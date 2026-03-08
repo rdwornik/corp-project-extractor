@@ -168,11 +168,12 @@ def extract(ctx: click.Context, project_path: str, force: bool, skip_junk: bool)
 
 @cli.command("extract-cke")
 @click.argument("project_path", type=click.Path(exists=True, file_okay=False))
+@click.option("--client", default=None, help="Client name (default: derived from folder name).")
 @click.option("--resume/--no-resume", default=True, help="Skip already-extracted files.")
 @click.option("--max-rpm", default=100, help="Max Gemini API requests per minute.")
 @click.option("--dry-run", is_flag=True, help="Generate manifest only, don't invoke CKE.")
 @click.pass_context
-def extract_cke(ctx: click.Context, project_path: str, resume: bool, max_rpm: int, dry_run: bool) -> None:
+def extract_cke(ctx: click.Context, project_path: str, client: str | None, resume: bool, max_rpm: int, dry_run: bool) -> None:
     """Extract knowledge via corp-knowledge-extractor (CKE) batch processing.
 
     Reads scan results, generates a CKE manifest, and invokes CKE's
@@ -201,7 +202,7 @@ def extract_cke(ctx: click.Context, project_path: str, resume: bool, max_rpm: in
     console.print(f"[bold]Scanned files:[/bold] {len(manifest.files)}")
 
     # Generate CKE manifest
-    manifest_path = generate_cke_manifest(manifest, path)
+    manifest_path = generate_cke_manifest(manifest, path, client_name=client)
 
     with open(manifest_path, "r", encoding="utf-8") as f:
         cke_data = json.load(f)

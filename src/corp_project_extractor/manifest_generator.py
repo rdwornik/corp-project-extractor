@@ -59,10 +59,22 @@ SUPPORTED_EXTENSIONS: set[str] = {
 }
 
 
+def _resolve_client(folder_derived: str, config_path: Path | None = None) -> str:
+    """Resolve client name from folder-derived name using optional alias config."""
+    if config_path and config_path.exists():
+        import yaml
+        with open(config_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+        aliases = data.get("aliases", {})
+        return aliases.get(folder_derived, folder_derived)
+    return folder_derived
+
+
 def generate_cke_manifest(
     manifest: Manifest,
     project_root: Path,
     output_dir: Path | None = None,
+    client_name: str | None = None,
 ) -> Path:
     """Generate a CKE manifest.json from a CPE Manifest.
 
@@ -71,12 +83,19 @@ def generate_cke_manifest(
         project_root: Absolute path to the project folder
         output_dir: Where CKE should write extraction output.
             Defaults to <project_root>/_knowledge/_cke_output
+        client_name: Explicit client name. If None, derived from project folder name.
 
     Returns:
         Path to generated cke_manifest.json
     """
     project_root = project_root.resolve()
     output_dir = output_dir or (project_root / "_knowledge" / "_cke_output")
+
+    # Resolve client name: explicit > alias config > folder-derived
+    if not client_name:
+        folder_derived = project_root.name.split("_")[0]
+        clients_yaml = Path(__file__).parent.parent.parent / "config" / "clients.yaml"
+        client_name = _resolve_client(folder_derived, clients_yaml)
 
     files: list[dict] = []
     skipped: list[str] = []
@@ -117,6 +136,8 @@ def generate_cke_manifest(
             "path": str(file_path.resolve()),
             "doc_type": doc_type,
             "name": entry.filename,
+            "client": client_name,
+            "project": manifest.project_id,
         })
 
     cke_manifest = {

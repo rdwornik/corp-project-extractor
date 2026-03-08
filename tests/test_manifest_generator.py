@@ -9,6 +9,7 @@ import pytest
 from corp_project_extractor.manifest_generator import (
     CATEGORY_TO_DOC_TYPE,
     EXTENSION_TO_DOC_TYPE,
+    _resolve_client,
     _slugify,
     generate_cke_manifest,
 )
@@ -185,6 +186,63 @@ class TestSlugify:
 
     def test_multiple_separators(self):
         assert _slugify("a___b   c") == "a-b-c"
+
+
+class TestClientProject:
+
+    def test_manifest_includes_client_and_project(self, tmp_path: Path):
+        entries = [_make_entry(tmp_path, "test.pdf")]
+        manifest = _make_manifest(entries)
+        data = _load_cke_manifest(
+            generate_cke_manifest(manifest, tmp_path, client_name="Lenzing AG")
+        )
+        assert data["files"][0]["client"] == "Lenzing AG"
+        assert data["files"][0]["project"] == "test-project"
+
+    def test_client_derived_from_folder_name(self, tmp_path: Path):
+        """When no --client flag, derive from project root folder name."""
+        # Simulate a project folder named "PepsiCo_Planning"
+        project_dir = tmp_path / "PepsiCo_Planning"
+        project_dir.mkdir()
+        pdf = project_dir / "test.pdf"
+        pdf.write_bytes(b"x" * 2048)
+
+        entries = [FileEntry(
+            rel_path="test.pdf", filename="test.pdf", extension=".pdf",
+            size_kb=100, modified="2026-03-06T00:00:00", sha256="abc",
+            category="Document", doc_role="supporting", confidence=0.9,
+            reason="test", is_junk=False, extractable=True,
+        )]
+        manifest = _make_manifest(entries)
+        data = _load_cke_manifest(
+            generate_cke_manifest(manifest, project_dir)
+        )
+        assert data["files"][0]["client"] == "PepsiCo"
+        assert data["files"][0]["project"] == "test-project"
+
+    def test_explicit_client_overrides_derived(self, tmp_path: Path):
+        entries = [_make_entry(tmp_path, "test.pdf")]
+        manifest = _make_manifest(entries)
+        data = _load_cke_manifest(
+            generate_cke_manifest(manifest, tmp_path, client_name="Custom Client")
+        )
+        assert data["files"][0]["client"] == "Custom Client"
+
+    def test_resolve_client_with_alias_file(self, tmp_path: Path):
+        """Alias config should resolve folder-derived names."""
+        alias_file = tmp_path / "clients.yaml"
+        alias_file.write_text('aliases:\n  Lenzing: "Lenzing AG"\n')
+        assert _resolve_client("Lenzing", alias_file) == "Lenzing AG"
+
+    def test_resolve_client_no_alias_file(self):
+        """Without alias file, return folder-derived name as-is."""
+        assert _resolve_client("PepsiCo") == "PepsiCo"
+
+    def test_resolve_client_unknown_alias(self, tmp_path: Path):
+        """Unknown names pass through unchanged."""
+        alias_file = tmp_path / "clients.yaml"
+        alias_file.write_text('aliases:\n  Lenzing: "Lenzing AG"\n')
+        assert _resolve_client("NewClient", alias_file) == "NewClient"
 
 
 class TestCategoryMapping:

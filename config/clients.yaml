@@ -1,0 +1,16 @@
+# Client name aliases — maps folder-derived names to official client names.
+# When CPE derives client from folder name (e.g., "Lenzing_Planning" → "Lenzing"),
+# this file resolves to the official name (e.g., "Lenzing AG").
+#
+# Usage: cpe extract-cke "...\Lenzing_Planning"
+#   → auto-resolves to client: "Lenzing AG"
+#
+# Override with --client flag: cpe extract-cke "..." --client "Custom Name"
+
+aliases:
+  Lenzing: "Lenzing AG"
+  PepsiCo: "PepsiCo"
+  Honda: "Honda"
+  Hafele: "Haefele"
+  LabelVie: "LabelVie"
+  Jaguar: "Jaguar Land Rover"
