@@ -15,7 +15,7 @@ Priority (see CLAUDE.md for full table):
  12  Dated folder / meeting folder — Meeting
  13  Demo folder — Demo
  14  Transformation Journey / Workshop folder — Strategy
- 15  RFP folder catch-all — Q&A→RFP_QA, _old→RFP_WIP, strategy→Strategy, else→RFP_WIP
+ 15  RFP folder catch-all — Q&A->RFP_QA, _old->RFP_WIP, strategy->Strategy, else->RFP_WIP
  16  Strategy filename — Briefing Book, Roadmap, Transformation, Strategy
  17  Meeting filename — meeting notes
  18  Proposal filename — Proposal Presentation

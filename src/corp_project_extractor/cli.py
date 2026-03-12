@@ -313,7 +313,7 @@ def show(ctx: click.Context, project_path: str) -> None:
 @click.argument("project_path", type=click.Path(exists=True, file_okay=False))
 @click.pass_context
 def run(ctx: click.Context, project_path: str) -> None:
-    """Full pipeline: scan → extract → render."""
+    """Full pipeline: scan -> extract -> render."""
     ctx.invoke(scan, project_path=project_path)
     ctx.invoke(extract, project_path=project_path, force=False, skip_junk=True)
     ctx.invoke(render, project_path=project_path)
