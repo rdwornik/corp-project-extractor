@@ -1,8 +1,54 @@
-# CLAUDE.md — Engineering Principles & Agent Behavior
+# CLAUDE.md — Corp Project Extractor (CPE)
 
-> **Purpose:** Drop this file into any project root to anchor Claude Code sessions to disciplined engineering process. Paste relevant sections into chat context when the agent loses focus.
+> **Purpose:** Project-specific context for Claude Code sessions + engineering principles.
 >
-> **Source:** Boris Cherny's Claude Code rules + Rob's dev standards. Last updated: 2026-02-24.
+> Last updated: 2026-03-12.
+
+---
+
+## Project Overview
+
+**CPE is an orchestrator, not an extractor.** It scans pre-sales project folders, classifies files, generates manifests, and delegates extraction to CKE (corp-knowledge-extractor) via subprocess.
+
+### Key Commands
+```
+cpe scan <path>         -- classify files, save _knowledge/manifest.yaml
+cpe extract-cke <path>  -- generate CKE manifest, invoke CKE batch
+cpe render <path>       -- aggregate CKE results -> project-info.yaml + facts.yaml + index.md
+cpe show <path>         -- display manifest table
+cpe run <path>          -- full pipeline: scan -> extract -> render
+```
+
+### Module Map
+| Module | Responsibility |
+|--------|---------------|
+| `cli.py` | Click CLI + Rich output |
+| `classifier.py` | 20-step priority rules (first match wins) |
+| `manifest.py` | Scan, hash, build/merge manifest.yaml |
+| `manifest_generator.py` | CPE manifest -> CKE cke_manifest.json |
+| `cke_invoker.py` | Subprocess call to CKE process-manifest |
+| `renderer.py` | Aggregate CKE extract.json -> project-info, facts, index |
+| `extractors.py` | Local text extraction (PPTX/PDF/DOCX/XLSX/CSV) |
+| `models.py` | Dataclasses: Classification, FileEntry, Manifest, ExtractionResult |
+| `config.py` | YAML config + .env expansion |
+
+### Config Files
+- `config/default.yaml` -- pipeline settings, junk markers, skip extensions
+- `config/clients.yaml` -- client name alias resolution
+- `.env` -- paths and secrets (not committed)
+
+### Integration Points
+- **CKE** -- invoked via subprocess (`cke_invoker.py`). CKE has its own venv.
+- **corp-by-os** -- calls CPE via CLI (e.g., `cpe scan`, `cpe extract-cke`)
+- No shared library imports between CPE and CKE -- clean process boundary.
+
+### Classification Priority (abbreviated)
+Junk -> Security -> RFP_QA (file) -> RFP_Original (file) -> WIP path -> RFP_Response (file) -> Submission path -> RFP path catch-all -> Strategy/Meeting/Proposal (file) -> Unknown
+
+### Known Issues
+- CKE path hardcoded in `cke_invoker.py` (should move to config/env)
+- `cpe run` uses local `extract`, not `extract-cke` -- may need updating
+- Windows cp1252 encoding: avoid Unicode arrows/special chars in Click help strings
 
 ---
 
@@ -123,11 +169,11 @@
 | Hardcoded paths/URLs | YAML config + `.env` |
 | `print()` debugging | `logging.debug()` / `logging.info()` |
 | Raw dicts for data | Dataclasses with type hints |
-| Committing to main | Feature branch → PR |
+| Committing to main | Feature branch -> PR |
 | "It works on my machine" | Tests + CI verification |
 | Asking "should I fix it?" | Just fix it, show the diff |
 | Vague commit messages | "Fix rate limiter edge case in retry logic" |
-| Temporary workarounds | Root cause analysis → proper fix |
+| Temporary workarounds | Root cause analysis -> proper fix |
 | Over-engineering simple tasks | Proportional effort to problem size |
 | Losing context mid-task | `tasks/todo.md` + `tasks/lessons.md` |
 
