@@ -1,25 +1,25 @@
-# CLAUDE.md — Corp Project Extractor (CPE)
+# CLAUDE.md -- Corp Project Extractor (CPE)
 
-> **Purpose:** Project-specific context for Claude Code sessions + engineering principles.
->
-> Last updated: 2026-03-12.
+## What this repo does
 
----
+CPE is an orchestrator for pre-sales project folders. It scans directories, classifies files by type/role using 20-priority rules, generates manifests, delegates extraction to CKE (corp-knowledge-extractor) via subprocess, and renders aggregated project knowledge as YAML + Obsidian markdown.
 
-## Project Overview
+## Quick start
 
-**CPE is an orchestrator, not an extractor.** It scans pre-sales project folders, classifies files, generates manifests, and delegates extraction to CKE (corp-knowledge-extractor) via subprocess.
-
-### Key Commands
-```
-cpe scan <path>         -- classify files, save _knowledge/manifest.yaml
-cpe extract-cke <path>  -- generate CKE manifest, invoke CKE batch
-cpe render <path>       -- aggregate CKE results -> project-info.yaml + facts.yaml + index.md
-cpe show <path>         -- display manifest table
-cpe run <path>          -- full pipeline: scan -> extract -> render
+```bash
+pip install -e .          # install in dev mode
+cpe --help                # see all commands
+pytest                    # run tests (45 tests)
+ruff check src/ --fix     # lint
+ruff format src/ tests/   # format
 ```
 
-### Module Map
+## Architecture
+
+**CPE is an orchestrator, not an extractor.** It classifies files and generates manifests, then delegates extraction to CKE.
+
+### Module map
+
 | Module | Responsibility |
 |--------|---------------|
 | `cli.py` | Click CLI + Rich output |
@@ -32,23 +32,113 @@ cpe run <path>          -- full pipeline: scan -> extract -> render
 | `models.py` | Dataclasses: Classification, FileEntry, Manifest, ExtractionResult |
 | `config.py` | YAML config + .env expansion |
 
-### Config Files
-- `config/default.yaml` -- pipeline settings, junk markers, skip extensions
-- `config/clients.yaml` -- client name alias resolution
-- `.env` -- paths and secrets (not committed)
+### Data flow
 
-### Integration Points
+```
+cpe scan       -> classify files -> _knowledge/manifest.yaml
+cpe extract-cke -> manifest -> cke_manifest.json -> CKE subprocess -> _cke_output/
+cpe render     -> _cke_output/extract.json -> project-info.yaml + facts.yaml + index.md
+cpe run        -> scan -> extract -> render (full pipeline)
+```
+
+### Integration points
+
 - **CKE** -- invoked via subprocess (`cke_invoker.py`). CKE has its own venv.
 - **corp-by-os** -- calls CPE via CLI (e.g., `cpe scan`, `cpe extract-cke`)
 - No shared library imports between CPE and CKE -- clean process boundary.
 
-### Classification Priority (abbreviated)
-Junk -> Security -> RFP_QA (file) -> RFP_Original (file) -> WIP path -> RFP_Response (file) -> Submission path -> RFP path catch-all -> Strategy/Meeting/Proposal (file) -> Unknown
+## Dev standards
 
-### Known Issues
+- Python 3.10+, Windows-first (pathlib, `py -m`)
+- `pyproject.toml` as single source of truth for deps and config
+- `ruff` for linting + formatting, `pytest` for testing
+- Feature branches, never commit directly to main
+- Logging not print, dataclasses not dicts, type hints everywhere
+- Config in YAML (`config/default.yaml`), secrets in `.env` (not committed)
+- Click CLI, Rich output (tables, panels, progress bars)
+- Meaningful commit messages (imperative mood: "Add X", "Fix Y")
+
+## Key commands
+
+```
+cpe scan <path>              -- classify all files, save manifest
+cpe extract <path>           -- scan + extract text locally (PPTX/PDF/DOCX/XLSX)
+  --force                    -- re-extract even if hash unchanged
+  --skip-junk / --no-skip-junk
+cpe extract-cke <path>       -- generate manifest, invoke CKE batch
+  --resume / --no-resume     -- skip already-completed files (default: on)
+  --max-rpm N                -- rate limit Gemini API (default: 100)
+  --dry-run                  -- preview without processing
+  --client <name>            -- override client name
+cpe render <path>            -- aggregate CKE results into project knowledge
+  --copy-to-vault <path>     -- copy index.md to Obsidian vault
+cpe show <path>              -- display existing manifest (no rescan)
+cpe run <path>               -- full pipeline: scan -> extract -> render
+```
+
+Global options: `--verbose` / `-v`, `--config PATH`
+
+## Config files
+
+| File | Purpose |
+|------|---------|
+| `config/default.yaml` | Pipeline settings: junk markers, skip extensions, extraction params |
+| `config/clients.yaml` | Client name alias resolution (folder name -> official name) |
+| `.env` | Paths and secrets (not committed) |
+
+## Test suite
+
+```bash
+pytest                    # 45 tests, ~0.6s
+pytest --tb=long          # full tracebacks
+pytest -k test_renderer   # run specific test file
+```
+
+**Coverage:** `test_manifest_generator.py` (32 tests), `test_renderer.py` (13 tests).
+Test fixtures in `tests/fixtures/`.
+
+## Dependencies
+
+**Runtime:** click, rich, pyyaml, python-pptx, pdfplumber, python-docx, openpyxl, python-dotenv
+
+**Dev:** pytest, pytest-cov, ruff
+
+**External:** corp-knowledge-extractor (CKE) -- installed separately, invoked via subprocess
+
+## Classification priority
+
+```
+ 1  Junk (temp/lock/obsolete markers)
+ 2  Security (SOC, ISO, DPA)
+ 3  RFP_QA filename (Q&A, questionnaire)
+ 4  RFP_Original filename
+ 5  WIP path
+ 6  Submission/Official Response path
+ 7  RFP_Response filename
+ 8  Data (CSV, payload, forecast)
+ 9  Original path within RFP
+10  Commercial filename (PS estimator, deal alignment)
+11  Implementation Services path
+12  Proposal Presentation path
+13  Dated/meeting folder (YYYY.MM.DD)
+14  Demo folder
+15  Transformation/Workshop folder
+16  RFP folder catch-all
+17  Strategy filename
+18  Meeting filename
+19  Proposal filename
+20  Extension fallbacks / Unknown
+```
+
+File-level rules come BEFORE path-based rules. Security wins over Submission path.
+
+## Known issues
+
 - CKE path hardcoded in `cke_invoker.py` (should move to config/env)
 - `cpe run` uses local `extract`, not `extract-cke` -- may need updating
-- Windows cp1252 encoding: avoid Unicode arrows/special chars in Click help strings
+- Windows cp1252: avoid Unicode arrows/special chars in Click help strings
+- Emoji status indicators render as `?` in cmd.exe (works in Windows Terminal/VSCode)
+- No test coverage for: `cli.py`, `classifier.py`, `extractors.py`, `manifest.py`, `cke_invoker.py`, `config.py`, `models.py`
 
 ---
 
@@ -56,146 +146,48 @@ Junk -> Security -> RFP_QA (file) -> RFP_Original (file) -> WIP path -> RFP_Resp
 
 ### 1. Plan Mode Default
 - Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately — don't keep pushing
-- Use plan mode for verification steps, not just building
+- If something goes sideways, STOP and re-plan immediately
 - Write detailed specs upfront to reduce ambiguity
 
 ### 2. Subagent Strategy
 - Use subagents liberally to keep main context window clean
 - Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
 - One task per subagent for focused execution
 
 ### 3. Self-Improvement Loop
-- After ANY correction from the user: update `tasks/lessons.md` with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start for relevant project
+- After ANY correction: update `tasks/lessons.md` with the pattern
+- Write rules that prevent the same mistake
+- Review lessons at session start
 
 ### 4. Verification Before Done
 - Never mark a task complete without proving it works
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
 - Run tests, check logs, demonstrate correctness
+- Ask: "Would a staff engineer approve this?"
 
-### 5. Demand Elegance (Balanced)
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes — don't over-engineer
-- Challenge your own work before presenting it
-
-### 6. Autonomous Bug Fixing
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests — then resolve them
-- Zero context switching required from the user
-- Go fix failing CI tests without being told how
-
----
+### 5. Autonomous Bug Fixing
+- Just fix it. No hand-holding. Point at logs, errors, failing tests -- then resolve.
 
 ## Task Management
 
-1. **Plan First:** Write plan to `tasks/todo.md` with checkable items
-2. **Verify Plan:** Check in before starting implementation
-3. **Track Progress:** Mark items complete as you go
-4. **Explain Changes:** High-level summary at each step
-5. **Document Results:** Add review section to `tasks/todo.md`
-6. **Capture Lessons:** Update `tasks/lessons.md` after corrections
-
----
+1. Write plan to `tasks/todo.md` with checkable items
+2. Check in before starting implementation
+3. Mark items complete as you go
+4. Update `tasks/lessons.md` after corrections
 
 ## Core Principles
 
-- **Simplicity First:** Make every change as simple as possible. Impact minimal code.
-- **No Laziness:** Find root causes. No temporary fixes. Senior developer standards.
-- **Minimal Impact:** Changes should only touch what's necessary. Avoid introducing bugs.
+- **Simplicity First:** Minimal code, minimal impact
+- **No Laziness:** Root causes, not temporary fixes
+- **Minimal Impact:** Only touch what's necessary
 
----
+## Anti-Patterns
 
-## Architecture & Code Standards
-
-### Structure
-- **Clean architecture** — single-responsibility modules, clear separation of concerns
-- **Config over hardcoding** — all paths, URLs, credentials, environment-specific values go in YAML config files (never hardcoded)
-- **Dataclasses over dicts** — typed data structures, not loose dictionaries
-- **`.env` files** for secrets and dynamic paths — never commit these
-- **README.md** in every project root — purpose, setup, usage, architecture overview
-
-### Code Quality
-- **Logging, not print** — use Python `logging` module with appropriate levels
-- **Comments** — explain *why*, not *what*. Document non-obvious decisions
-- **Type hints** everywhere in Python
-- **Error handling** — explicit, meaningful error messages. No bare `except:`
-
-### CLI & Output
-- **Click** for CLI interfaces
-- **Rich** for terminal output (tables, progress bars, panels)
-
-### Testing & Verification
-- **pytest** as test framework
-- Write tests before marking anything done
-- Test edge cases, not just happy paths
-- If you can't test it, you can't ship it
-
-### Git Workflow
-- **Feature branches** — never commit directly to main
-- Meaningful commit messages (imperative mood: "Add X", "Fix Y")
-- Small, focused commits — one logical change per commit
-
----
-
-## Knowledge Management (Obsidian)
-
-- YAML frontmatter on all notes
-- Sparse `[[wikilinks]]` in text — max 2-3 per paragraph
-- Source/extract separation: source notes are immutable, extracts are regenerable
-- `_meta.yaml` for versioning metadata
-
----
-
-## Communication Style
-
-- **Insight-first** — lead with the "so what", not a description of what you did
-- **Bold-first paragraphs** for scanning
-- **No corporate filler** — cut fluff words, be direct
-- **Critical thinking** — challenge assumptions, flag risks, present tradeoffs
-- **ADHD-optimized** — scannable, structured, front-loaded with the important bits
-
----
-
-## Anti-Patterns (Never Do These)
-
-| Anti-Pattern | Do Instead |
+| Don't | Do Instead |
 |---|---|
 | Hardcoded paths/URLs | YAML config + `.env` |
 | `print()` debugging | `logging.debug()` / `logging.info()` |
 | Raw dicts for data | Dataclasses with type hints |
 | Committing to main | Feature branch -> PR |
-| "It works on my machine" | Tests + CI verification |
 | Asking "should I fix it?" | Just fix it, show the diff |
 | Vague commit messages | "Fix rate limiter edge case in retry logic" |
-| Temporary workarounds | Root cause analysis -> proper fix |
-| Over-engineering simple tasks | Proportional effort to problem size |
-| Losing context mid-task | `tasks/todo.md` + `tasks/lessons.md` |
-
----
-
-## Quick-Paste Snippets
-
-### Session Start Reminder
-```
-Before starting: read tasks/lessons.md and tasks/todo.md. Plan mode for anything non-trivial. Feature branch. Tests. Logging. Config in YAML. Go.
-```
-
-### Mid-Session Course Correction
-```
-STOP. You're drifting. Re-read CLAUDE.md core principles: simplicity first, no laziness, minimal impact. Re-plan in plan mode before continuing.
-```
-
-### Pre-Commit Checklist
-```
-Before marking done: tests pass? Logs clean? Diff reviewed? Staff engineer would approve? Config externalized? README updated if needed?
-```
-
----
-
-*This document is a living reference. Update it as patterns evolve.*
+| Over-engineering | Proportional effort to problem size |
