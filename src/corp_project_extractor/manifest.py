@@ -3,6 +3,7 @@
 Output: <project>/_knowledge/manifest.yaml
 Incremental: unchanged files (same path + hash) keep their extraction status.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -66,7 +67,6 @@ def scan(
 ) -> Manifest:
     """Walk *project_path*, classify every file, return a fresh Manifest."""
     project_path = project_path.resolve()
-    settings = get_settings()
 
     entries: list[FileEntry] = []
 
@@ -74,7 +74,7 @@ def scan(
         if not item.is_file():
             continue
         # Skip output dirs and hidden dirs
-        rel_parts = item.parts[len(project_path.parts):]
+        rel_parts = item.parts[len(project_path.parts) :]
         if any(p in SKIP_DIRS for p in rel_parts):
             continue
         if any(p.startswith(".") for p in rel_parts):
@@ -177,11 +177,9 @@ def scan_and_save(
         old_paths = set(old_index)
         new_paths = {e.rel_path for e in merged.files}
         added = len(new_paths - old_paths)
-        changed = sum(1 for e in merged.files
-                      if e.rel_path in old_paths and old_index[e.rel_path] != e.sha256)
+        changed = sum(1 for e in merged.files if e.rel_path in old_paths and old_index[e.rel_path] != e.sha256)
         removed = len(old_paths - new_paths)
         unchanged = len(merged.files) - added - changed
-        log.info("Scan delta: %d new, %d changed, %d removed, %d unchanged",
-                 added, changed, removed, unchanged)
+        log.info("Scan delta: %d new, %d changed, %d removed, %d unchanged", added, changed, removed, unchanged)
 
     return merged, manifest_path

@@ -4,6 +4,7 @@ with a YAML provenance header.
 Supported: .pptx (python-pptx), .pdf (pdfplumber), .docx (python-docx),
            .xlsx/.xls (openpyxl), .csv (stdlib csv)
 """
+
 from __future__ import annotations
 
 import csv
@@ -11,7 +12,6 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import yaml
 
@@ -22,6 +22,7 @@ log = logging.getLogger(__name__)
 
 
 # ── Path helpers ───────────────────────────────────────────────────────────────
+
 
 def _slug(text: str) -> str:
     """Replace spaces and path separators with underscores, keep safe chars."""
@@ -42,6 +43,7 @@ def get_extracted_path(project_path: Path, file_path: Path) -> Path:
 
 
 # ── Provenance header ──────────────────────────────────────────────────────────
+
 
 def _write_extracted(
     out_path: Path,
@@ -78,6 +80,7 @@ def _cell_str(value, max_chars: int = 200) -> str:
 
 
 # ── PPTX ──────────────────────────────────────────────────────────────────────
+
 
 def extract_pptx(
     file_path: Path,
@@ -144,13 +147,20 @@ def extract_pptx(
     body = "\n".join(lines)
     source_rel = str(file_path.relative_to(project_path))
     wc = _write_extracted(
-        out_path, source_rel, source_hash, category, doc_role, "pptx",
-        {"slides": slide_count, "extracted_slides": extracted_slides}, body,
+        out_path,
+        source_rel,
+        source_hash,
+        category,
+        doc_role,
+        "pptx",
+        {"slides": slide_count, "extracted_slides": extracted_slides},
+        body,
     )
     return ExtractionResult(success=True, output_path=out_path, word_count=wc)
 
 
 # ── PDF ───────────────────────────────────────────────────────────────────────
+
 
 def extract_pdf(
     file_path: Path,
@@ -188,13 +198,20 @@ def extract_pdf(
     body = "\n".join(lines)
     source_rel = str(file_path.relative_to(project_path))
     wc = _write_extracted(
-        out_path, source_rel, source_hash, category, doc_role, "pdf",
-        {"pages": page_count, "extracted_pages": extracted_pages}, body,
+        out_path,
+        source_rel,
+        source_hash,
+        category,
+        doc_role,
+        "pdf",
+        {"pages": page_count, "extracted_pages": extracted_pages},
+        body,
     )
     return ExtractionResult(success=True, output_path=out_path, word_count=wc)
 
 
 # ── DOCX ──────────────────────────────────────────────────────────────────────
+
 
 def extract_docx(
     file_path: Path,
@@ -250,13 +267,20 @@ def extract_docx(
     body = "\n".join(lines)
     source_rel = str(file_path.relative_to(project_path))
     wc = _write_extracted(
-        out_path, source_rel, source_hash, category, doc_role, "docx",
-        {"paragraphs": para_count}, body,
+        out_path,
+        source_rel,
+        source_hash,
+        category,
+        doc_role,
+        "docx",
+        {"paragraphs": para_count},
+        body,
     )
     return ExtractionResult(success=True, output_path=out_path, word_count=wc)
 
 
 # ── XLSX ──────────────────────────────────────────────────────────────────────
+
 
 def _is_questionnaire_sheet(sheet_name: str) -> bool:
     """True if this sheet should use full-row questionnaire extraction."""
@@ -331,7 +355,7 @@ def extract_xlsx(
             for row in non_empty[:max_rows]:
                 cells = [_cell_str(c, trunc) for c in row]
                 # Pad/trim to match header width
-                cells = cells[:len(headers)] + [""] * (len(headers) - len(cells))
+                cells = cells[: len(headers)] + [""] * (len(headers) - len(cells))
                 lines.append("| " + " | ".join(cells) + " |")
             if len(non_empty) > max_rows:
                 lines.append(f"_… {len(non_empty) - max_rows} more rows_")
@@ -348,7 +372,7 @@ def extract_xlsx(
                 lines.append("| " + " | ".join(["---"] * len(headers)) + " |")
                 for row in sample:
                     cells = [_cell_str(c, trunc) for c in row]
-                    cells = cells[:len(headers)] + [""] * (len(headers) - len(cells))
+                    cells = cells[: len(headers)] + [""] * (len(headers) - len(cells))
                     lines.append("| " + " | ".join(cells) + " |")
                 if total > max_rows:
                     lines.append(f"_… {total - max_rows} more rows_")
@@ -358,13 +382,20 @@ def extract_xlsx(
     body = "\n".join(lines)
     source_rel = str(file_path.relative_to(project_path))
     wc = _write_extracted(
-        out_path, source_rel, source_hash, category, doc_role, "xlsx",
-        {"sheets": sheet_count}, body,
+        out_path,
+        source_rel,
+        source_hash,
+        category,
+        doc_role,
+        "xlsx",
+        {"sheets": sheet_count},
+        body,
     )
     return ExtractionResult(success=True, output_path=out_path, word_count=wc)
 
 
 # ── CSV ───────────────────────────────────────────────────────────────────────
+
 
 def extract_csv(
     file_path: Path,
@@ -407,13 +438,20 @@ def extract_csv(
     body = "\n".join(lines)
     source_rel = str(file_path.relative_to(project_path))
     wc = _write_extracted(
-        out_path, source_rel, source_hash, category, doc_role, "csv",
-        {"rows": total, "columns": len(headers)}, body,
+        out_path,
+        source_rel,
+        source_hash,
+        category,
+        doc_role,
+        "csv",
+        {"rows": total, "columns": len(headers)},
+        body,
     )
     return ExtractionResult(success=True, output_path=out_path, word_count=wc)
 
 
 # ── Dispatcher ────────────────────────────────────────────────────────────────
+
 
 def extract(
     file_path: Path,
@@ -432,8 +470,9 @@ def extract(
     except OSError as e:
         return ExtractionResult(False, None, 0, f"Cannot stat file (cloud-only?): {e}")
     if size_mb > settings.extraction.max_file_size_mb:
-        return ExtractionResult(False, None, 0,
-                                f"File too large ({size_mb:.0f} MB > {settings.extraction.max_file_size_mb} MB)")
+        return ExtractionResult(
+            False, None, 0, f"File too large ({size_mb:.0f} MB > {settings.extraction.max_file_size_mb} MB)"
+        )
 
     # Skip list
     if ext in settings.skip_extensions:

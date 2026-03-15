@@ -1,4 +1,5 @@
 """Click CLI for corp-project-extractor. Entry point: cpe"""
+
 from __future__ import annotations
 
 import json
@@ -18,28 +19,28 @@ console = Console()
 
 # ── Category colour map (Rich markup colours) ────────────────────────────────
 CATEGORY_STYLE: dict[str, str] = {
-    "RFP_Original":  "green",
-    "RFP_Response":  "cyan",
-    "RFP_WIP":       "yellow",
-    "RFP_QA":        "blue",
-    "Meeting":       "magenta",
-    "Demo":          "bright_magenta",
-    "Strategy":      "bright_yellow",
-    "Commercial":    "bright_green",
-    "Security":      "dim",
-    "Proposal":      "bright_cyan",
-    "Data":          "bright_blue",
-    "Presentation":  "dim",
-    "Document":      "dim",
-    "Spreadsheet":   "dim",
-    "Junk":          "red",
-    "Unknown":       "dim red",
+    "RFP_Original": "green",
+    "RFP_Response": "cyan",
+    "RFP_WIP": "yellow",
+    "RFP_QA": "blue",
+    "Meeting": "magenta",
+    "Demo": "bright_magenta",
+    "Strategy": "bright_yellow",
+    "Commercial": "bright_green",
+    "Security": "dim",
+    "Proposal": "bright_cyan",
+    "Data": "bright_blue",
+    "Presentation": "dim",
+    "Document": "dim",
+    "Spreadsheet": "dim",
+    "Junk": "red",
+    "Unknown": "dim red",
 }
 
 CONFIDENCE_STYLE: dict[str, str] = {
-    "high":   "green",
+    "high": "green",
     "medium": "yellow",
-    "low":    "red",
+    "low": "red",
 }
 
 
@@ -60,10 +61,10 @@ def _fmt_size(kb: int) -> str:
 
 # ── CLI group ─────────────────────────────────────────────────────────────────
 
+
 @click.group()
 @click.option("--verbose", "-v", is_flag=True, help="Enable debug logging.")
-@click.option("--config", "config_path", type=click.Path(), default=None,
-              help="Override config file path.")
+@click.option("--config", "config_path", type=click.Path(), default=None, help="Override config file path.")
 @click.pass_context
 def cli(ctx: click.Context, verbose: bool, config_path: str | None) -> None:
     """Corp Project Extractor — scan, classify, extract, and render pre-sales knowledge."""
@@ -75,11 +76,13 @@ def cli(ctx: click.Context, verbose: bool, config_path: str | None) -> None:
     # Force config reload with custom path if provided
     if config_path:
         from corp_project_extractor.config import get_settings, reset_cache
+
         reset_cache()
         get_settings(Path(config_path))
 
 
 # ── cpe scan ──────────────────────────────────────────────────────────────────
+
 
 @cli.command()
 @click.argument("project_path", type=click.Path(exists=True, file_okay=False))
@@ -89,7 +92,7 @@ def scan(ctx: click.Context, project_path: str) -> None:
     from corp_project_extractor import manifest as m
 
     path = Path(project_path)
-    console.print(f"\n[bold]Corp Project Extractor — Scan[/bold]")
+    console.print("\n[bold]Corp Project Extractor — Scan[/bold]")
     console.print(f"Project: [cyan]{path.name}[/cyan]")
     console.print(f"Path:    [dim]{path}[/dim]\n")
 
@@ -102,11 +105,11 @@ def scan(ctx: click.Context, project_path: str) -> None:
 
 # ── cpe extract ───────────────────────────────────────────────────────────────
 
+
 @cli.command()
 @click.argument("project_path", type=click.Path(exists=True, file_okay=False))
 @click.option("--force", is_flag=True, help="Re-extract even if hash unchanged.")
-@click.option("--skip-junk", "skip_junk", is_flag=True, default=True,
-              help="Skip Junk and WIP files (default: True).")
+@click.option("--skip-junk", "skip_junk", is_flag=True, default=True, help="Skip Junk and WIP files (default: True).")
 @click.pass_context
 def extract(ctx: click.Context, project_path: str, force: bool, skip_junk: bool) -> None:
     """Scan + extract text from all supported files in PROJECT_PATH."""
@@ -114,37 +117,37 @@ def extract(ctx: click.Context, project_path: str, force: bool, skip_junk: bool)
     from corp_project_extractor import extractors
 
     path = Path(project_path)
-    console.print(f"\n[bold]Corp Project Extractor — Extract[/bold]")
+    console.print("\n[bold]Corp Project Extractor — Extract[/bold]")
     console.print(f"Project: [cyan]{path.name}[/cyan]\n")
 
     with console.status("[bold green]Scanning files…[/bold green]"):
         result, _ = m.scan_and_save(path)
 
     to_extract = [
-        f for f in result.files
-        if f.extractable
-        and (force or not f.extracted)
-        and not (skip_junk and f.is_junk)
-        and f.doc_role != "obsolete"
+        f
+        for f in result.files
+        if f.extractable and (force or not f.extracted) and not (skip_junk and f.is_junk) and f.doc_role != "obsolete"
     ]
 
-    console.print(f"Files to extract: [bold]{len(to_extract)}[/bold] "
-                  f"(of {len(result.files)} total)\n")
+    console.print(f"Files to extract: [bold]{len(to_extract)}[/bold] (of {len(result.files)} total)\n")
 
     success = failed = skipped = 0
     for entry in to_extract:
         file_path = path / entry.rel_path
         try:
             res = extractors.extract(
-                file_path, path, entry.category, entry.doc_role, entry.sha256,
+                file_path,
+                path,
+                entry.category,
+                entry.doc_role,
+                entry.sha256,
             )
             if res.success and res.output_path:
                 entry.extracted = True
                 entry.extracted_path = str(res.output_path.relative_to(path)).replace("\\", "/")
                 entry.word_count = res.word_count
                 entry.extraction_error = None
-                console.print(f"  [green]✓[/green] {entry.rel_path}  "
-                              f"[dim]({res.word_count:,} words)[/dim]")
+                console.print(f"  [green]✓[/green] {entry.rel_path}  [dim]({res.word_count:,} words)[/dim]")
                 success += 1
             else:
                 entry.extraction_error = res.error
@@ -166,6 +169,7 @@ def extract(ctx: click.Context, project_path: str, force: bool, skip_junk: bool)
 
 # ── cpe extract-cke ──────────────────────────────────────────────────────────
 
+
 @cli.command("extract-cke")
 @click.argument("project_path", type=click.Path(exists=True, file_okay=False))
 @click.option("--client", default=None, help="Client name (default: derived from folder name).")
@@ -173,7 +177,9 @@ def extract(ctx: click.Context, project_path: str, force: bool, skip_junk: bool)
 @click.option("--max-rpm", default=100, help="Max Gemini API requests per minute.")
 @click.option("--dry-run", is_flag=True, help="Generate manifest only, don't invoke CKE.")
 @click.pass_context
-def extract_cke(ctx: click.Context, project_path: str, client: str | None, resume: bool, max_rpm: int, dry_run: bool) -> None:
+def extract_cke(
+    ctx: click.Context, project_path: str, client: str | None, resume: bool, max_rpm: int, dry_run: bool
+) -> None:
     """Extract knowledge via corp-knowledge-extractor (CKE) batch processing.
 
     Reads scan results, generates a CKE manifest, and invokes CKE's
@@ -189,7 +195,7 @@ def extract_cke(ctx: click.Context, project_path: str, client: str | None, resum
     from corp_project_extractor.manifest_generator import generate_cke_manifest
 
     path = Path(project_path)
-    console.print(f"\n[bold]Corp Project Extractor — Extract via CKE[/bold]")
+    console.print("\n[bold]Corp Project Extractor — Extract via CKE[/bold]")
     console.print(f"Project: [cyan]{path.name}[/cyan]\n")
 
     # Load existing manifest or run a fresh scan
@@ -217,13 +223,13 @@ def extract_cke(ctx: click.Context, project_path: str, client: str | None, resum
 
     if dry_run:
         console.print(f"\n[yellow]Dry run — manifest saved to {manifest_path}[/yellow]")
-        console.print(f"\nTo process manually:")
-        console.print(f"  cd C:\\Users\\1028120\\Documents\\Scripts\\corp-knowledge-extractor")
-        console.print(f"  python scripts/run.py process-manifest \"{manifest_path}\" --resume")
+        console.print("\nTo process manually:")
+        console.print("  cd C:\\Users\\1028120\\Documents\\Scripts\\corp-knowledge-extractor")
+        console.print(f'  python scripts/run.py process-manifest "{manifest_path}" --resume')
         return
 
     # Invoke CKE
-    console.print(f"\n[bold]Starting extraction via CKE...[/bold]\n")
+    console.print("\n[bold]Starting extraction via CKE...[/bold]\n")
     result = invoke_cke_batch(
         manifest_path=manifest_path,
         resume=resume,
@@ -231,7 +237,7 @@ def extract_cke(ctx: click.Context, project_path: str, client: str | None, resum
     )
 
     if result.returncode == 0:
-        console.print(f"\n[bold green]Extraction complete.[/bold green]")
+        console.print("\n[bold green]Extraction complete.[/bold green]")
         console.print(f"Results in: {cke_data['output_dir']}")
     else:
         console.print(f"\n[bold red]CKE exited with errors (code {result.returncode}).[/bold red]")
@@ -239,10 +245,10 @@ def extract_cke(ctx: click.Context, project_path: str, client: str | None, resum
 
 # ── cpe render ────────────────────────────────────────────────────────────────
 
+
 @cli.command()
 @click.argument("project_path", type=click.Path(exists=True, file_okay=False))
-@click.option("--copy-to-vault", type=click.Path(), default=None,
-              help="Copy index.md to Obsidian vault path.")
+@click.option("--copy-to-vault", type=click.Path(), default=None, help="Copy index.md to Obsidian vault path.")
 @click.pass_context
 def render(ctx: click.Context, project_path: str, copy_to_vault: str | None) -> None:
     """Render project knowledge from CKE extraction results.
@@ -253,7 +259,7 @@ def render(ctx: click.Context, project_path: str, copy_to_vault: str | None) -> 
     from corp_project_extractor.renderer import render_project
 
     path = Path(project_path)
-    console.print(f"\n[bold]Corp Project Extractor — Render[/bold]")
+    console.print("\n[bold]Corp Project Extractor — Render[/bold]")
     console.print(f"Project: [cyan]{path.name}[/cyan]\n")
 
     try:
@@ -262,7 +268,7 @@ def render(ctx: click.Context, project_path: str, copy_to_vault: str | None) -> 
         console.print(f"[red]{e}[/red]")
         sys.exit(1)
 
-    console.print(f"[green]Done.[/green]")
+    console.print("[green]Done.[/green]")
     console.print(f"  Extractions: {stats['extractions']}")
     console.print(f"  Topics:      {stats['topics']}")
     console.print(f"  Products:    {stats['products']}")
@@ -270,6 +276,7 @@ def render(ctx: click.Context, project_path: str, copy_to_vault: str | None) -> 
     console.print(f"  Facts:       {stats['facts']}")
 
     from corp_project_extractor.config import get_settings
+
     knowledge_dir = path / get_settings().knowledge_dir
     console.print(f"\n  [dim]{knowledge_dir / 'project-info.yaml'}[/dim]")
     console.print(f"  [dim]{knowledge_dir / 'facts.yaml'}[/dim]")
@@ -277,6 +284,7 @@ def render(ctx: click.Context, project_path: str, copy_to_vault: str | None) -> 
 
     if copy_to_vault:
         import shutil
+
         vault_dir = Path(copy_to_vault) / path.name
         vault_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(knowledge_dir / "index.md", vault_dir / "index.md")
@@ -284,6 +292,7 @@ def render(ctx: click.Context, project_path: str, copy_to_vault: str | None) -> 
 
 
 # ── cpe show ──────────────────────────────────────────────────────────────────
+
 
 @cli.command()
 @click.argument("project_path", type=click.Path(exists=True, file_okay=False))
@@ -309,6 +318,7 @@ def show(ctx: click.Context, project_path: str) -> None:
 
 # ── cpe run ───────────────────────────────────────────────────────────────────
 
+
 @cli.command()
 @click.argument("project_path", type=click.Path(exists=True, file_okay=False))
 @click.pass_context
@@ -321,9 +331,9 @@ def run(ctx: click.Context, project_path: str) -> None:
 
 # ── Rich output helpers ───────────────────────────────────────────────────────
 
+
 def _print_file_table(files: list) -> None:
-    table = Table(box=box.SIMPLE_HEAVY, show_header=True, header_style="bold",
-                  expand=False, highlight=False)
+    table = Table(box=box.SIMPLE_HEAVY, show_header=True, header_style="bold", expand=False, highlight=False)
     table.add_column("Category", min_width=14, no_wrap=True)
     table.add_column("Role", min_width=14, no_wrap=True)
     table.add_column("Ext", min_width=5, no_wrap=True)
@@ -378,9 +388,7 @@ def _print_file_table(files: list) -> None:
 
 def _print_summary_panel(result, manifest_path: Path) -> None:
     counts: Counter = Counter(f.category for f in result.files)
-    extracted_counts: Counter = Counter(
-        f.category for f in result.files if f.extracted
-    )
+    extracted_counts: Counter = Counter(f.category for f in result.files if f.extracted)
     word_totals: dict[str, int] = {}
     for f in result.files:
         word_totals[f.category] = word_totals.get(f.category, 0) + f.word_count
@@ -392,18 +400,18 @@ def _print_summary_panel(result, manifest_path: Path) -> None:
         words = word_totals.get(cat, 0)
         extr_str = f"{extr} extracted" if extr else "— pending"
         word_str = f"   {words:,} words" if words else ""
-        rows.append(
-            f"[{style}]{cat:<16}[/{style}]  {count:>3} file(s)  {extr_str:<14}{word_str}"
-        )
+        rows.append(f"[{style}]{cat:<16}[/{style}]  {count:>3} file(s)  {extr_str:<14}{word_str}")
 
     rows.append("")
     rows.append(f"[dim]Total: {len(result.files)} files  |  Scanned: {result.last_scanned}[/dim]")
     rows.append(f"[dim]Manifest: {manifest_path}[/dim]")
 
-    console.print(Panel(
-        "\n".join(rows),
-        title=f"[bold]{result.project_id}[/bold]",
-        border_style="dim",
-        padding=(0, 1),
-    ))
+    console.print(
+        Panel(
+            "\n".join(rows),
+            title=f"[bold]{result.project_id}[/bold]",
+            border_style="dim",
+            padding=(0, 1),
+        )
+    )
     console.print()

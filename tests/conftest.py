@@ -1,4 +1,5 @@
 """Shared pytest fixtures for corp-project-extractor tests."""
+
 import pytest
 from pathlib import Path
 

@@ -1,4 +1,5 @@
 """Tests for project renderer (CKE extract.json aggregation)."""
+
 from __future__ import annotations
 
 import json
@@ -36,9 +37,8 @@ def _create_extraction(
         "topics": topics,
         "products": products or ["Blue Yonder Platform"],
         "people": people or [],
-        "key_points": key_points or [
-            f"Key point from {title}: this is a detailed insight about the document contents."
-        ],
+        "key_points": key_points
+        or [f"Key point from {title}: this is a detailed insight about the document contents."],
         "slides_count": 0,
         "links_line": "",
         "validation_result": "valid",
@@ -51,7 +51,6 @@ def _create_extraction(
 
 
 class TestRenderProject:
-
     def test_basic_render(self, tmp_path: Path):
         _create_extraction(tmp_path, "file-1", "RFP Response", ["SLA", "WMS"])
         _create_extraction(tmp_path, "file-2", "Meeting Notes", ["Demand Planning"])
@@ -67,8 +66,7 @@ class TestRenderProject:
         assert (tmp_path / "_knowledge" / "index.md").exists()
 
     def test_project_info_structure(self, tmp_path: Path):
-        _create_extraction(tmp_path, "file-1", "Test Doc", ["SLA"],
-                          products=["BY Platform"], people=["Alice (PM)"])
+        _create_extraction(tmp_path, "file-1", "Test Doc", ["SLA"], products=["BY Platform"], people=["Alice (PM)"])
         render_project(tmp_path)
 
         with open(tmp_path / "_knowledge" / "project-info.yaml") as f:
@@ -82,8 +80,7 @@ class TestRenderProject:
         assert "Alice (PM)" in info["people"]
 
     def test_project_info_has_opportunity(self, tmp_path: Path):
-        _create_extraction(tmp_path, "file-1", "Test", ["SLA"],
-                          products=["BY Demand Planning"])
+        _create_extraction(tmp_path, "file-1", "Test", ["SLA"], products=["BY Demand Planning"])
         render_project(tmp_path)
 
         with open(tmp_path / "_knowledge" / "project-info.yaml") as f:
@@ -95,8 +92,13 @@ class TestRenderProject:
         assert info["opportunity"]["stage"] == "active"
 
     def test_facts_yaml_structure(self, tmp_path: Path):
-        _create_extraction(tmp_path, "file-1", "RFP", ["Demand Planning"],
-                          key_points=["This is a detailed key point about demand planning capabilities."])
+        _create_extraction(
+            tmp_path,
+            "file-1",
+            "RFP",
+            ["Demand Planning"],
+            key_points=["This is a detailed key point about demand planning capabilities."],
+        )
         render_project(tmp_path)
 
         with open(tmp_path / "_knowledge" / "facts.yaml") as f:
@@ -113,9 +115,14 @@ class TestRenderProject:
         assert "topics" in fact
 
     def test_facts_skips_short_key_points(self, tmp_path: Path):
-        _create_extraction(tmp_path, "file-1", "Test", ["SLA"],
-                          key_points=["Too short", "This is a sufficiently long key point for extraction."],
-                          summary="Short")  # < 50 chars, should skip
+        _create_extraction(
+            tmp_path,
+            "file-1",
+            "Test",
+            ["SLA"],
+            key_points=["Too short", "This is a sufficiently long key point for extraction."],
+            summary="Short",
+        )  # < 50 chars, should skip
         render_project(tmp_path)
 
         with open(tmp_path / "_knowledge" / "facts.yaml") as f:
@@ -126,8 +133,7 @@ class TestRenderProject:
         assert any("sufficiently long" in f for f in fact_texts)
 
     def test_index_md_frontmatter(self, tmp_path: Path):
-        _create_extraction(tmp_path, "file-1", "Test", ["SLA"],
-                          products=["BY Platform"])
+        _create_extraction(tmp_path, "file-1", "Test", ["SLA"], products=["BY Platform"])
         render_project(tmp_path)
 
         content = (tmp_path / "_knowledge" / "index.md").read_text()
@@ -140,8 +146,7 @@ class TestRenderProject:
         assert "```dataview" in content
 
     def test_index_md_links_line(self, tmp_path: Path):
-        _create_extraction(tmp_path, "file-1", "Test", ["Demand Planning"],
-                          products=["BY Platform"])
+        _create_extraction(tmp_path, "file-1", "Test", ["Demand Planning"], products=["BY Platform"])
         render_project(tmp_path)
 
         content = (tmp_path / "_knowledge" / "index.md").read_text()
@@ -184,8 +189,7 @@ class TestRenderProject:
             render_project(tmp_path)
 
     def test_people_section_in_index(self, tmp_path: Path):
-        _create_extraction(tmp_path, "f1", "Test", ["SLA"],
-                          people=["Ernesto (VP Supply Chain)", "Christian (S&OP)"])
+        _create_extraction(tmp_path, "f1", "Test", ["SLA"], people=["Ernesto (VP Supply Chain)", "Christian (S&OP)"])
         render_project(tmp_path)
 
         content = (tmp_path / "_knowledge" / "index.md").read_text()

@@ -5,6 +5,7 @@ Reads extract.json files from _knowledge/_cke_output/ and produces:
   - facts.yaml         (aggregated key points with sources)
   - index.md           (Obsidian project overview with frontmatter)
 """
+
 from __future__ import annotations
 
 import json
@@ -34,9 +35,7 @@ def render_project(project_path: Path) -> dict:
     cke_output = knowledge_dir / "_cke_output"
 
     if not cke_output.exists():
-        raise FileNotFoundError(
-            f"No CKE output found at {cke_output}. Run 'cpe extract-cke' first."
-        )
+        raise FileNotFoundError(f"No CKE output found at {cke_output}. Run 'cpe extract-cke' first.")
 
     extractions = _load_extractions(cke_output)
 
@@ -137,22 +136,26 @@ def _build_facts(project_name: str, extractions: list[dict]) -> dict:
 
         for point in ext.get("key_points", []):
             if isinstance(point, str) and len(point) > 20:
-                facts.append({
-                    "fact": point,
-                    "source": file_id,
-                    "source_title": title,
-                    "topics": topics,
-                })
+                facts.append(
+                    {
+                        "fact": point,
+                        "source": file_id,
+                        "source_title": title,
+                        "topics": topics,
+                    }
+                )
 
         summary = ext.get("summary", "")
         if summary and len(summary) > 50:
-            facts.append({
-                "fact": summary,
-                "source": file_id,
-                "source_title": title,
-                "type": "summary",
-                "topics": topics,
-            })
+            facts.append(
+                {
+                    "fact": summary,
+                    "source": file_id,
+                    "source_title": title,
+                    "type": "summary",
+                    "topics": topics,
+                }
+            )
 
     # Group fact counts by topic
     topic_counts: Counter[str] = Counter()
@@ -278,7 +281,8 @@ def _write_yaml(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         yaml.dump(
-            data, f,
+            data,
+            f,
             default_flow_style=False,
             allow_unicode=True,
             sort_keys=False,

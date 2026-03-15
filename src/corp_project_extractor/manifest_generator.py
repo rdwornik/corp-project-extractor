@@ -3,6 +3,7 @@
 Reads the CPE Manifest (YAML) and produces a JSON manifest that
 corp-knowledge-extractor's process-manifest command can consume.
 """
+
 from __future__ import annotations
 
 import json
@@ -11,7 +12,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from corp_project_extractor.models import FileEntry, Manifest
+from corp_project_extractor.models import Manifest
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +55,16 @@ EXTENSION_TO_DOC_TYPE: dict[str, str] = {
 
 # File extensions CKE can process
 SUPPORTED_EXTENSIONS: set[str] = {
-    ".pdf", ".docx", ".pptx", ".xlsx", ".txt", ".md",
-    ".mp4", ".mkv", ".avi", ".mov",
+    ".pdf",
+    ".docx",
+    ".pptx",
+    ".xlsx",
+    ".txt",
+    ".md",
+    ".mp4",
+    ".mkv",
+    ".avi",
+    ".mov",
 }
 
 
@@ -63,6 +72,7 @@ def _resolve_client(folder_derived: str, config_path: Path | None = None) -> str
     """Resolve client name from folder-derived name using optional alias config."""
     if config_path and config_path.exists():
         import yaml
+
         with open(config_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         aliases = data.get("aliases", {})
@@ -131,14 +141,16 @@ def generate_cke_manifest(
 
         file_id = _slugify(file_path.stem)
 
-        files.append({
-            "id": file_id,
-            "path": str(file_path.resolve()),
-            "doc_type": doc_type,
-            "name": entry.filename,
-            "client": client_name,
-            "project": manifest.project_id,
-        })
+        files.append(
+            {
+                "id": file_id,
+                "path": str(file_path.resolve()),
+                "doc_type": doc_type,
+                "name": entry.filename,
+                "client": client_name,
+                "project": manifest.project_id,
+            }
+        )
 
     cke_manifest = {
         "schema_version": 1,
@@ -151,6 +163,7 @@ def generate_cke_manifest(
 
     # Write manifest alongside the CPE manifest
     from corp_project_extractor.config import get_settings
+
     settings = get_settings()
     knowledge_dir = project_root / settings.knowledge_dir
     knowledge_dir.mkdir(parents=True, exist_ok=True)

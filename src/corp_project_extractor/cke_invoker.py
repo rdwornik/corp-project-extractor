@@ -2,6 +2,7 @@
 
 Runs CKE as a subprocess -- maintains CLI boundary per orchestrator pattern.
 """
+
 from __future__ import annotations
 
 import logging
@@ -37,8 +38,7 @@ def invoke_cke_batch(
     cke_python = cke / "venv" / "Scripts" / "python.exe"
     if not cke_python.exists():
         raise FileNotFoundError(
-            f"CKE Python not found at {cke_python}. "
-            f"Ensure corp-knowledge-extractor is installed at {cke}"
+            f"CKE Python not found at {cke_python}. Ensure corp-knowledge-extractor is installed at {cke}"
         )
 
     run_script = cke / "scripts" / "run.py"
@@ -50,7 +50,8 @@ def invoke_cke_batch(
         str(run_script),
         "process-manifest",
         str(manifest_path.resolve()),
-        "--max-rpm", str(max_rpm),
+        "--max-rpm",
+        str(max_rpm),
     ]
 
     if resume:

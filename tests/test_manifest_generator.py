@@ -1,4 +1,5 @@
 """Tests for CKE manifest generation."""
+
 from __future__ import annotations
 
 import json
@@ -63,7 +64,6 @@ def _load_cke_manifest(path: Path) -> dict:
 
 
 class TestGenerateCkeManifest:
-
     def test_basic_generation(self, tmp_path: Path):
         entries = [
             _make_entry(tmp_path, "report.pdf", "Document"),
@@ -157,9 +157,7 @@ class TestGenerateCkeManifest:
         entries = [_make_entry(tmp_path, "test.pdf")]
         manifest = _make_manifest(entries)
         custom_out = tmp_path / "my_output"
-        data = _load_cke_manifest(
-            generate_cke_manifest(manifest, tmp_path, output_dir=custom_out)
-        )
+        data = _load_cke_manifest(generate_cke_manifest(manifest, tmp_path, output_dir=custom_out))
         assert str(custom_out.resolve()) in data["output_dir"]
 
     def test_file_paths_are_absolute(self, tmp_path: Path):
@@ -171,7 +169,6 @@ class TestGenerateCkeManifest:
 
 
 class TestSlugify:
-
     def test_basic(self):
         assert _slugify("Lenzing DPA SIOP Template") == "lenzing-dpa-siop-template"
 
@@ -189,13 +186,10 @@ class TestSlugify:
 
 
 class TestClientProject:
-
     def test_manifest_includes_client_and_project(self, tmp_path: Path):
         entries = [_make_entry(tmp_path, "test.pdf")]
         manifest = _make_manifest(entries)
-        data = _load_cke_manifest(
-            generate_cke_manifest(manifest, tmp_path, client_name="Lenzing AG")
-        )
+        data = _load_cke_manifest(generate_cke_manifest(manifest, tmp_path, client_name="Lenzing AG"))
         assert data["files"][0]["client"] == "Lenzing AG"
         assert data["files"][0]["project"] == "test-project"
 
@@ -207,25 +201,31 @@ class TestClientProject:
         pdf = project_dir / "test.pdf"
         pdf.write_bytes(b"x" * 2048)
 
-        entries = [FileEntry(
-            rel_path="test.pdf", filename="test.pdf", extension=".pdf",
-            size_kb=100, modified="2026-03-06T00:00:00", sha256="abc",
-            category="Document", doc_role="supporting", confidence=0.9,
-            reason="test", is_junk=False, extractable=True,
-        )]
+        entries = [
+            FileEntry(
+                rel_path="test.pdf",
+                filename="test.pdf",
+                extension=".pdf",
+                size_kb=100,
+                modified="2026-03-06T00:00:00",
+                sha256="abc",
+                category="Document",
+                doc_role="supporting",
+                confidence=0.9,
+                reason="test",
+                is_junk=False,
+                extractable=True,
+            )
+        ]
         manifest = _make_manifest(entries)
-        data = _load_cke_manifest(
-            generate_cke_manifest(manifest, project_dir)
-        )
+        data = _load_cke_manifest(generate_cke_manifest(manifest, project_dir))
         assert data["files"][0]["client"] == "PepsiCo"
         assert data["files"][0]["project"] == "test-project"
 
     def test_explicit_client_overrides_derived(self, tmp_path: Path):
         entries = [_make_entry(tmp_path, "test.pdf")]
         manifest = _make_manifest(entries)
-        data = _load_cke_manifest(
-            generate_cke_manifest(manifest, tmp_path, client_name="Custom Client")
-        )
+        data = _load_cke_manifest(generate_cke_manifest(manifest, tmp_path, client_name="Custom Client"))
         assert data["files"][0]["client"] == "Custom Client"
 
     def test_resolve_client_with_alias_file(self, tmp_path: Path):
@@ -248,16 +248,19 @@ class TestClientProject:
 class TestCategoryMapping:
     """Ensure all CPE categories have a CKE mapping."""
 
-    @pytest.mark.parametrize("category,expected", [
-        ("RFP_Original", "document"),
-        ("RFP_Response", "document"),
-        ("RFP_QA", "spreadsheet"),
-        ("Meeting", "note"),
-        ("Demo", "presentation"),
-        ("Presentation", "presentation"),
-        ("Security", "document"),
-        ("Data", "spreadsheet"),
-        ("Unknown", "document"),
-    ])
+    @pytest.mark.parametrize(
+        "category,expected",
+        [
+            ("RFP_Original", "document"),
+            ("RFP_Response", "document"),
+            ("RFP_QA", "spreadsheet"),
+            ("Meeting", "note"),
+            ("Demo", "presentation"),
+            ("Presentation", "presentation"),
+            ("Security", "document"),
+            ("Data", "spreadsheet"),
+            ("Unknown", "document"),
+        ],
+    )
     def test_mapping(self, category: str, expected: str):
         assert CATEGORY_TO_DOC_TYPE[category] == expected

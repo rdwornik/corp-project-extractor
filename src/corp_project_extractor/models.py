@@ -1,7 +1,7 @@
 """All dataclasses for corp-project-extractor. No raw dicts anywhere in the pipeline."""
+
 from __future__ import annotations
 
-import datetime
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -12,22 +12,24 @@ import yaml
 @dataclass
 class Classification:
     """Result of classifying a single file."""
-    category: str       # RFP_Original, Meeting, Strategy, Junk, etc.
-    doc_role: str       # source_of_truth | supporting | obsolete
-    confidence: float   # 0.0 – 1.0
-    reason: str         # Human-readable explanation
+
+    category: str  # RFP_Original, Meeting, Strategy, Junk, etc.
+    doc_role: str  # source_of_truth | supporting | obsolete
+    confidence: float  # 0.0 – 1.0
+    reason: str  # Human-readable explanation
     is_junk: bool = False
 
 
 @dataclass
 class FileEntry:
     """Single file recorded in the project manifest."""
-    rel_path: str               # Relative to project root, forward slashes
+
+    rel_path: str  # Relative to project root, forward slashes
     filename: str
-    extension: str              # Lowercase with dot: ".pptx"
+    extension: str  # Lowercase with dot: ".pptx"
     size_kb: int
-    modified: str               # ISO format timestamp
-    sha256: str                 # Short hash (first 16 hex chars)
+    modified: str  # ISO format timestamp
+    sha256: str  # Short hash (first 16 hex chars)
     category: str
     doc_role: str
     confidence: float
@@ -51,6 +53,7 @@ class FileEntry:
 @dataclass
 class Manifest:
     """Project-level manifest tracking all files and their status."""
+
     project_id: str
     project_path: str
     created_at: str
@@ -96,6 +99,7 @@ class Manifest:
 @dataclass
 class ExtractionResult:
     """Result of extracting text from a single file."""
+
     success: bool
     output_path: Optional[Path]
     word_count: int

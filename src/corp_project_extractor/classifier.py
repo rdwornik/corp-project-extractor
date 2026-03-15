@@ -22,6 +22,7 @@ Priority (see CLAUDE.md for full table):
  19  Extension fallbacks — Presentation / Document / Spreadsheet / Data
  20  Unknown
 """
+
 from __future__ import annotations
 
 import re
@@ -35,22 +36,22 @@ MEDIUM = 0.7
 LOW = 0.4
 
 DOC_ROLES: dict[str, str] = {
-    "RFP_Original":  "source_of_truth",
-    "RFP_Response":  "source_of_truth",
-    "RFP_WIP":       "obsolete",
-    "RFP_QA":        "source_of_truth",
-    "Meeting":       "source_of_truth",
-    "Demo":          "source_of_truth",
-    "Strategy":      "source_of_truth",
-    "Commercial":    "source_of_truth",
-    "Security":      "supporting",
-    "Proposal":      "source_of_truth",
-    "Data":          "supporting",
-    "Presentation":  "supporting",
-    "Document":      "supporting",
-    "Spreadsheet":   "supporting",
-    "Junk":          "obsolete",
-    "Unknown":       "supporting",
+    "RFP_Original": "source_of_truth",
+    "RFP_Response": "source_of_truth",
+    "RFP_WIP": "obsolete",
+    "RFP_QA": "source_of_truth",
+    "Meeting": "source_of_truth",
+    "Demo": "source_of_truth",
+    "Strategy": "source_of_truth",
+    "Commercial": "source_of_truth",
+    "Security": "supporting",
+    "Proposal": "source_of_truth",
+    "Data": "supporting",
+    "Presentation": "supporting",
+    "Document": "supporting",
+    "Spreadsheet": "supporting",
+    "Junk": "obsolete",
+    "Unknown": "supporting",
 }
 
 EXTRACTABLE_EXTENSIONS: set[str] = {".pptx", ".pdf", ".docx", ".xlsx", ".xls", ".csv"}
@@ -75,7 +76,6 @@ def classify_file(file_path: Path, project_root: Path) -> Classification:
 
     # Folder parts as lowercase strings (excludes filename itself)
     folder_parts: list[str] = [p.lower() for p in rel.parts[:-1]]
-    folder_str: str = " / ".join(folder_parts)  # for multi-word substring search
 
     name: str = file_path.name
     name_lower: str = name.lower()
@@ -156,8 +156,7 @@ def classify_file(file_path: Path, project_root: Path) -> Classification:
 
     # ── 12. PATH: dated folder (YYYY.MM.DD) or meeting/prep folder ───────────
     _meeting_folder = any(
-        re.search(r"\d{4}\.\d{2}\.\d{2}", p) or "meeting" in p or "prep meeting" in p
-        for p in folder_parts
+        re.search(r"\d{4}\.\d{2}\.\d{2}", p) or "meeting" in p or "prep meeting" in p for p in folder_parts
     )
     if _meeting_folder:
         return _clf("Meeting", HIGH, "inside dated meeting / meeting folder")

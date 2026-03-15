@@ -1,4 +1,5 @@
 """YAML config loader + Settings dataclass. Expands ${ENV_VAR} from .env."""
+
 from __future__ import annotations
 
 import os
@@ -11,24 +12,44 @@ import yaml
 # Try dotenv; gracefully degrade if not yet installed (bootstrap phase)
 try:
     from dotenv import load_dotenv
+
     _HAS_DOTENV = True
 except ImportError:  # pragma: no cover
     _HAS_DOTENV = False
 
-_PACKAGE_ROOT = Path(__file__).parent          # src/corp_project_extractor/
-_PROJECT_ROOT = _PACKAGE_ROOT.parent.parent    # repo root
+_PACKAGE_ROOT = Path(__file__).parent  # src/corp_project_extractor/
+_PROJECT_ROOT = _PACKAGE_ROOT.parent.parent  # repo root
 CONFIG_DIR = _PROJECT_ROOT / "config"
 DEFAULT_CONFIG_PATH = CONFIG_DIR / "default.yaml"
 
 _QUESTIONNAIRE_DEFAULTS = [
-    "Q&A", "Questionnaire", "Requirements", "Business",
-    "Service and Technical", "Commercials", "Forecast", "Questions",
+    "Q&A",
+    "Questionnaire",
+    "Requirements",
+    "Business",
+    "Service and Technical",
+    "Commercials",
+    "Forecast",
+    "Questions",
 ]
 _SKIP_EXT_DEFAULTS = [
-    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg",
-    ".mp4", ".mov", ".avi", ".mkv",
-    ".zip", ".rar", ".7z",
-    ".exe", ".msi", ".dll", ".lnk",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".bmp",
+    ".svg",
+    ".mp4",
+    ".mov",
+    ".avi",
+    ".mkv",
+    ".zip",
+    ".rar",
+    ".7z",
+    ".exe",
+    ".msi",
+    ".dll",
+    ".lnk",
 ]
 
 
@@ -50,9 +71,17 @@ class Settings:
     pdf_toolkit_path: str = ""
     knowledge_dir: str = "_knowledge"
     extracted_dir: str = "_extracted"
-    junk_markers: list[str] = field(default_factory=lambda: [
-        "DO NOT USE", "NOT USE!", "OLD!!", "~$", "Thumbs.db", ".DS_Store", "backup",
-    ])
+    junk_markers: list[str] = field(
+        default_factory=lambda: [
+            "DO NOT USE",
+            "NOT USE!",
+            "OLD!!",
+            "~$",
+            "Thumbs.db",
+            ".DS_Store",
+            "backup",
+        ]
+    )
     skip_extensions: list[str] = field(default_factory=lambda: list(_SKIP_EXT_DEFAULTS))
     extraction: ExtractionConfig = field(default_factory=ExtractionConfig)
 
