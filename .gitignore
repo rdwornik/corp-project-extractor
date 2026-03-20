@@ -10,3 +10,4 @@ build/
 .ruff_cache/
 *.swp
 *~
+.claude/settings.local.json

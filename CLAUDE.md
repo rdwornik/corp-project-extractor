@@ -47,6 +47,13 @@ cpe run        -> scan -> extract -> render (full pipeline)
 - **corp-by-os** -- calls CPE via CLI (e.g., `cpe scan`, `cpe extract-cke`)
 - No shared library imports between CPE and CKE -- clean process boundary.
 
+## Related repos
+
+- [ECOSYSTEM.md](../ECOSYSTEM.md) — full ecosystem overview
+- [corp-knowledge-extractor](../corp-knowledge-extractor/) — extraction engine (invoked via subprocess)
+- [corp-by-os](../corp-by-os/) — orchestrator (invokes CPE)
+- [corp-os-meta](../corp-os-meta/) — shared schema (indirect, via CKE output)
+
 ## Dev standards
 
 - Python 3.10+, Windows-first (pathlib, `py -m`)
